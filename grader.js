@@ -24,8 +24,10 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var request = require('request');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = "";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -34,6 +36,10 @@ var assertFileExists = function(infile) {
         process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
     }
     return instr;
+};
+
+var assertURL = function(infile){
+    return infile.toString();
 };
 
 var cheerioHtmlFile = function(htmlfile) {
@@ -65,10 +71,44 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <URL>','URL to page', clone(assertURL), URL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+
+    var outJson = "";
+    if (program.url.length > 0){
+
+	request(program.url, function (error, response, body) {
+	    if (!error && response.statusCode == 200) {
+
+		$ = cheerio.load(body)
+		var checks = loadChecks(program.checks).sort();
+		var out = {};
+		for(var ii in checks) {
+		    var present = $(checks[ii]).length > 0;
+		    out[checks[ii]] = present;
+		}
+		
+		outJson = JSON.stringify(out, null, 4);
+
+		console.log(outJson);
+	    }
+	    else {
+		console.log("Error in URL Get");
+	    }
+	});
+
+
+	
+
+    }
+    else{
+	var checkJson = checkHtmlFile(program.file, program.checks);
+	outJson = JSON.stringify(checkJson, null, 4);
+
+	console.log(outJson);
+    }
+
+
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
